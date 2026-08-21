@@ -625,7 +625,7 @@ func TestCompareAndSendConfiguration(t *testing.T) {
 				GrafanaAlertmanagerConfig: client.GrafanaAlertmanagerConfig{
 					AlertmanagerConfig: func() definition.PostableApiAlertingConfig {
 						c := policy_exports.Config()
-						apiCfg := notifier.PostableApiAlertingConfigToAPI(c.AlertmanagerConfig, c.SortedTimeIntervals())
+						apiCfg := notifier.PostableApiAlertingConfigToAPI(c.AlertmanagerConfig, c.GetDefaultRoute(), c.SortedTimeIntervals())
 						apiCfg.Route = legacy_storage.WithManagedRoutes(c)
 						return apiCfg
 					}(),
@@ -1073,12 +1073,10 @@ func TestCompareAndSendConfigurationWithExtraConfigs(t *testing.T) {
 	defer server.Close()
 
 	cfg := v1.AMConfigV1{
+		ManagedRoutes: map[string]*v1.Route{
+			ngmodels.DefaultRoutingTreeName: {Receiver: "grafana-default-email"},
+		},
 		AlertmanagerConfig: v1.PostableApiAlertingConfig{
-			Config: v1.Config{
-				Route: &v1.Route{
-					Receiver: "grafana-default-email",
-				},
-			},
 			Receivers: []*v1.PostableApiReceiver{
 				{
 					Name: "grafana-default-email",

@@ -28,7 +28,7 @@ import (
 func TestGetPolicyTree(t *testing.T) {
 	orgID := int64(1)
 	rev := getDefaultConfigRevision()
-	expectedRoute := *rev.Config.AlertmanagerConfig.Route
+	expectedRoute := *rev.Config.GetDefaultRoute()
 	expectedRoute.Provenance = v1.Provenance(models.ProvenanceAPI)
 	expectedVersion := calculateRouteFingerprint(expectedRoute)
 
@@ -61,7 +61,7 @@ func TestUpdatePolicyTree(t *testing.T) {
 	orgID := int64(1)
 	rev := getDefaultConfigRevision()
 
-	defaultVersion := calculateRouteFingerprint(*rev.Config.AlertmanagerConfig.Route)
+	defaultVersion := calculateRouteFingerprint(*rev.Config.GetDefaultRoute())
 
 	newRoute := definitions.Route{
 		Receiver: rev.Config.AlertmanagerConfig.Receivers[0].Name,
@@ -172,7 +172,7 @@ func TestUpdatePolicyTree(t *testing.T) {
 		expectedRev := getDefaultConfigRevision()
 		route := newRoute
 		expectedRev.ConcurrencyToken = rev.ConcurrencyToken
-		expectedRev.Config.AlertmanagerConfig.Route = v1.RouteToModel(&route)
+		expectedRev.Config.SetDefaultRoute(v1.RouteToModel(&route))
 
 		expectedErr := errors.New("test")
 		sut.validator = func(_ context.Context, from, to models.Provenance) error {
@@ -234,7 +234,7 @@ func TestUpdatePolicyTree(t *testing.T) {
 		expectedRev := getDefaultConfigRevision()
 		route := newRoute
 		expectedRev.ConcurrencyToken = rev.ConcurrencyToken
-		expectedRev.Config.AlertmanagerConfig.Route = v1.RouteToModel(&route)
+		expectedRev.Config.SetDefaultRoute(v1.RouteToModel(&route))
 
 		result, version, err := sut.UpdatePolicyTree(context.Background(), orgID, newRoute, models.ProvenanceAPI, defaultVersion)
 		require.NoError(t, err)
@@ -265,7 +265,7 @@ func TestUpdatePolicyTree(t *testing.T) {
 		}
 
 		expectedRev := getDefaultConfigRevision()
-		expectedRev.Config.AlertmanagerConfig.Route = v1.RouteToModel(&newRoute)
+		expectedRev.Config.SetDefaultRoute(v1.RouteToModel(&newRoute))
 		expectedRev.ConcurrencyToken = rev.ConcurrencyToken
 
 		result, version, err := sut.UpdatePolicyTree(context.Background(), orgID, newRoute, models.ProvenanceAPI, "")
@@ -292,9 +292,9 @@ func TestResetPolicyTree(t *testing.T) {
 	orgID := int64(1)
 
 	currentRevision := getDefaultConfigRevision()
-	currentRevision.Config.AlertmanagerConfig.Route = &v1.Route{
+	currentRevision.Config.SetDefaultRoute(&v1.Route{
 		Receiver: "receiver",
-	}
+	})
 	currentRevision.Config.Templates = map[v1.ResourceUID]v1.TemplateGroup{
 		v1.TemplateUID(v1.TemplateKindGrafana, "test"): v1.NewTemplateGroup("", "test", "test", v1.TemplateKindGrafana, models.ProvenanceNone),
 	}
@@ -360,18 +360,19 @@ func TestResetPolicyTree(t *testing.T) {
 		}
 
 		expectedRev := currentRevision
-		expectedRev.Config.AlertmanagerConfig.Route = getDefaultConfigRevision().Config.AlertmanagerConfig.Route
+		expectedRev.Config.SetDefaultRoute(getDefaultConfigRevision().Config.GetDefaultRoute())
 		expectedRev.Config.AlertmanagerConfig.Receivers = append(expectedRev.Config.AlertmanagerConfig.Receivers, getDefaultConfigRevision().Config.AlertmanagerConfig.Receivers[0])
 
 		tree, err := sut.ResetPolicyTree(context.Background(), orgID, models.ProvenanceNone)
 		require.NoError(t, err)
-		assert.Equal(t, *notifier.RouteToAPI(defaultConfig.AlertmanagerConfig.Route), tree)
+		assert.Equal(t, *notifier.RouteToAPI(defaultConfig.GetDefaultRoute()), tree)
 
 		assert.Len(t, store.Calls, 2)
 		assert.Equal(t, "Save", store.Calls[1].Method)
 		assertInTransaction(t, store.Calls[1].Args[0].(context.Context))
 		resetRev := store.Calls[1].Args[1].(*legacy_storage.ConfigRevision)
 		assert.Equal(t, expectedRev.Config.AlertmanagerConfig, resetRev.Config.AlertmanagerConfig)
+		assert.Equal(t, expectedRev.Config.ManagedRoutes, resetRev.Config.ManagedRoutes)
 
 		assert.Len(t, prov.Calls, 2)
 		c := prov.Calls[0]
@@ -525,11 +526,13 @@ func createNotificationPolicyServiceSut() (*NotificationPolicyService, *legacy_s
 func getDefaultConfigRevision() legacy_storage.ConfigRevision {
 	return legacy_storage.ConfigRevision{
 		Config: &v1.AMConfigV1{
+			ManagedRoutes: map[string]*v1.Route{
+				models.DefaultRoutingTreeName: {
+					Receiver: "test-receiver",
+				},
+			},
 			AlertmanagerConfig: v1.PostableApiAlertingConfig{
 				Config: v1.Config{
-					Route: &v1.Route{
-						Receiver: "test-receiver",
-					},
 					InhibitRules: nil,
 				},
 				Receivers: []*v1.PostableApiReceiver{

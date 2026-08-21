@@ -277,7 +277,7 @@ func (moa *MultiOrgAlertmanager) gettableUserConfigFromAMConfigString(ctx contex
 	}
 
 	alertmanagerConfig := cfg.AlertmanagerConfig
-	apiConfig := PostableApiAlertingConfigToAPI(alertmanagerConfig, cfg.SortedTimeIntervals())
+	apiConfig := PostableApiAlertingConfigToAPI(alertmanagerConfig, cfg.GetDefaultRoute(), cfg.SortedTimeIntervals())
 
 	if withAutogen {
 		// We validate the notification settings in a similar way to when we POST.

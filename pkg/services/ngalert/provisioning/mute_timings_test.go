@@ -523,16 +523,16 @@ func TestUpdateMuteTimings(t *testing.T) {
 				v1.TimeIntervalUID("Test"):  v1.NewTimeInterval("Test", nil, models.ProvenanceNone),
 				v1.TimeIntervalUID("Test2"): v1.NewTimeInterval("Test2", nil, models.ProvenanceNone),
 			},
-			AlertmanagerConfig: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{
-						Routes: []*v1.Route{
-							{
-								MuteTimeIntervals: []string{original.Title},
-							},
+			ManagedRoutes: map[string]*v1.Route{
+				models.DefaultRoutingTreeName: {
+					Routes: []*v1.Route{
+						{
+							MuteTimeIntervals: []string{original.Title},
 						},
 					},
 				},
+			},
+			AlertmanagerConfig: v1.PostableApiAlertingConfig{
 				Receivers: nil,
 			},
 		}
@@ -1065,15 +1065,13 @@ func TestDeleteMuteTimings(t *testing.T) {
 				v1.TimeIntervalUID(managedRouteActiveTiming): v1.NewTimeInterval(managedRouteActiveTiming, nil, models.ProvenanceNone),
 			},
 			AlertmanagerConfig: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{
-						MuteTimeIntervals:   []string{usedMuteTiming},
-						ActiveTimeIntervals: []string{usedActiveTiming},
-					},
-				},
 				Receivers: nil,
 			},
 			ManagedRoutes: map[string]*v1.Route{
+				models.DefaultRoutingTreeName: {
+					MuteTimeIntervals:   []string{usedMuteTiming},
+					ActiveTimeIntervals: []string{usedActiveTiming},
+				},
 				"managed-route": {
 					Routes: []*v1.Route{
 						{

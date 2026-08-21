@@ -13,10 +13,10 @@ import (
 func TestNewNotificationSettingsValidator_Routes(t *testing.T) {
 	baseConfig := func() *v1.AMConfigV1 {
 		return &v1.AMConfigV1{
+			ManagedRoutes: map[string]*v1.Route{
+				models.DefaultRoutingTreeName: {Receiver: "default"},
+			},
 			AlertmanagerConfig: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{Receiver: "default"},
-				},
 				Receivers: []*v1.PostableApiReceiver{
 					{Name: "default"},
 				},

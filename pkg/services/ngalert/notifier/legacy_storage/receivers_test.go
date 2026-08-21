@@ -403,7 +403,8 @@ func TestReceiverNameUsedByRoutes(t *testing.T) {
 
 func TestReceiverUseByName(t *testing.T) {
 	rev := getConfigRevisionForTest()
-	rev.Config.AlertmanagerConfig.Route.Routes = append(rev.Config.AlertmanagerConfig.Route.Routes,
+	root := rev.Config.GetDefaultRoute()
+	root.Routes = append(root.Routes,
 		&v1.Route{
 			Routes: []*v1.Route{
 				{
@@ -451,9 +452,11 @@ func TestRenameReceiverInRoutes(t *testing.T) {
 		}
 	}
 	rev := getConfigRevisionForTest()
-	rev.Config.AlertmanagerConfig.Route.Routes = append(rev.Config.AlertmanagerConfig.Route.Routes, routeGen())
+	root := rev.Config.GetDefaultRoute()
+	root.Routes = append(root.Routes, routeGen())
 	rev.Config.ManagedRoutes = map[string]*v1.Route{
-		"named_route": routeGen(),
+		models.DefaultRoutingTreeName: root,
+		"named_route":                 routeGen(),
 	}
 
 	t.Run("should do nothing if receiver is not used by routes ", func(t *testing.T) {
@@ -469,7 +472,7 @@ func TestRenameReceiverInRoutes(t *testing.T) {
 
 	t.Run("should rename all references", func(t *testing.T) {
 		result := rev.RenameReceiverInRoutes("receiver1", "found")
-		require.Equal(t, 4, result[rev.Config.AlertmanagerConfig.Route])
+		require.Equal(t, 4, result[rev.Config.GetDefaultRoute()])
 		require.Equal(t, 3, result[rev.Config.ManagedRoutes["named_route"]])
 		expected := map[string]int{
 			"found":            7,
@@ -486,9 +489,6 @@ func getConfigRevisionForTest(opts ...opt) *ConfigRevision {
 	r := &ConfigRevision{
 		Config: &v1.AMConfigV1{
 			AlertmanagerConfig: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{Receiver: "receiver1"},
-				},
 				Receivers: []*v1.PostableApiReceiver{
 					{
 						Name: "receiver1",
@@ -527,8 +527,9 @@ func getConfigRevisionForTest(opts ...opt) *ConfigRevision {
 				v1.TimeIntervalUID("mute-interval-1"): {Title: "mute-interval-1"},
 			},
 			ManagedRoutes: map[string]*v1.Route{
-				"named_route": {Receiver: "receiver1"},
-				"other_route": {Receiver: "receiver2"},
+				models.DefaultRoutingTreeName: {Receiver: "receiver1"},
+				"named_route":                 {Receiver: "receiver1"},
+				"other_route":                 {Receiver: "receiver2"},
 			},
 		},
 	}

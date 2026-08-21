@@ -357,7 +357,7 @@ func TestIntegrationContactPointService(t *testing.T) {
 		assertInTransaction(t, svc.Calls[0].Args[0].(context.Context))
 		assert.Equal(t, int64(1), svc.Calls[0].Args[1])
 		revision := svc.Calls[0].Args[2].(*legacy_storage.ConfigRevision)
-		assert.EqualValues(t, v1.RouteToModel(parsed.AlertmanagerConfig.Route), revision.Config.AlertmanagerConfig.Route)
+		assert.EqualValues(t, v1.RouteToModel(parsed.AlertmanagerConfig.Route), revision.Config.GetDefaultRoute())
 		assert.Equal(t, oldName, svc.Calls[0].Args[3])
 		assert.Equal(t, newName, svc.Calls[0].Args[4])
 		assert.Equal(t, models.ProvenanceAPI, svc.Calls[0].Args[5])
@@ -1176,16 +1176,6 @@ func TestStitchReceivers(t *testing.T) {
 			},
 			expOldReceiver: new("receiver-2"),
 			expCfg: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{
-						Receiver: "receiver-1",
-						Routes: []*v1.Route{
-							{
-								Receiver: "receiver-1",
-							},
-						},
-					},
-				},
 				Receivers: []*v1.PostableApiReceiver{
 					{
 						Name: "receiver-1",
@@ -1231,16 +1221,6 @@ func TestStitchReceivers(t *testing.T) {
 			expCreatedReceiver: true,
 			expFullRemoval:     true,
 			expCfg: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{
-						Receiver: "receiver-1",
-						Routes: []*v1.Route{
-							{
-								Receiver: "receiver-1",
-							},
-						},
-					},
-				},
 				Receivers: []*v1.PostableApiReceiver{
 					{
 						Name: "new-receiver",
@@ -1285,16 +1265,6 @@ func TestStitchReceivers(t *testing.T) {
 			expOldReceiver:     new("receiver-2"),
 			expCreatedReceiver: false,
 			expCfg: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{
-						Receiver: "receiver-1",
-						Routes: []*v1.Route{
-							{
-								Receiver: "receiver-1",
-							},
-						},
-					},
-				},
 				Receivers: []*v1.PostableApiReceiver{
 					{
 						Name: "receiver-1",
@@ -1333,16 +1303,6 @@ func TestStitchReceivers(t *testing.T) {
 			name: "rename to another, larger group",
 			initial: &v1.AMConfigV1{
 				AlertmanagerConfig: v1.PostableApiAlertingConfig{
-					Config: v1.Config{
-						Route: &v1.Route{
-							Receiver: "receiver-1",
-							Routes: []*v1.Route{
-								{
-									Receiver: "receiver-1",
-								},
-							},
-						},
-					},
 					Receivers: []*v1.PostableApiReceiver{
 						{
 							Name: "receiver-1",
@@ -1390,16 +1350,6 @@ func TestStitchReceivers(t *testing.T) {
 			expOldReceiver:     new("receiver-1"),
 			expCreatedReceiver: false,
 			expCfg: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{
-						Receiver: "receiver-1",
-						Routes: []*v1.Route{
-							{
-								Receiver: "receiver-1",
-							},
-						},
-					},
-				},
 				Receivers: []*v1.PostableApiReceiver{
 					{
 						Name: "receiver-1",
@@ -1443,16 +1393,6 @@ func TestStitchReceivers(t *testing.T) {
 			name: "rename when there are many groups",
 			initial: &v1.AMConfigV1{
 				AlertmanagerConfig: v1.PostableApiAlertingConfig{
-					Config: v1.Config{
-						Route: &v1.Route{
-							Receiver: "receiver-1",
-							Routes: []*v1.Route{
-								{
-									Receiver: "receiver-1",
-								},
-							},
-						},
-					},
 					Receivers: []*v1.PostableApiReceiver{
 						{
 							Name: "receiver-1",
@@ -1510,16 +1450,6 @@ func TestStitchReceivers(t *testing.T) {
 			expOldReceiver:     new("receiver-1"),
 			expCreatedReceiver: false,
 			expCfg: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{
-						Receiver: "receiver-1",
-						Routes: []*v1.Route{
-							{
-								Receiver: "receiver-1",
-							},
-						},
-					},
-				},
 				Receivers: []*v1.PostableApiReceiver{
 					{
 						Name: "receiver-1",
@@ -1579,16 +1509,6 @@ func TestStitchReceivers(t *testing.T) {
 			expOldReceiver:     new("receiver-2"),
 			expCreatedReceiver: true,
 			expCfg: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{
-						Receiver: "receiver-1",
-						Routes: []*v1.Route{
-							{
-								Receiver: "receiver-1",
-							},
-						},
-					},
-				},
 				Receivers: []*v1.PostableApiReceiver{
 					{
 						Name: "receiver-1",
@@ -1639,16 +1559,6 @@ func TestStitchReceivers(t *testing.T) {
 			expOldReceiver:     new("receiver-2"), // Not the inconsistent receiver-3?
 			expCreatedReceiver: true,
 			expCfg: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{
-						Receiver: "receiver-1",
-						Routes: []*v1.Route{
-							{
-								Receiver: "receiver-1",
-							},
-						},
-					},
-				},
 				Receivers: []*v1.PostableApiReceiver{
 					{
 						Name: "receiver-1",
@@ -1692,19 +1602,6 @@ func TestStitchReceivers(t *testing.T) {
 			name: "single item group rename to existing group",
 			initial: &v1.AMConfigV1{
 				AlertmanagerConfig: v1.PostableApiAlertingConfig{
-					Config: v1.Config{
-						Route: &v1.Route{
-							Receiver: "receiver-1",
-							Routes: []*v1.Route{
-								{
-									Receiver: "receiver-1",
-								},
-								{
-									Receiver: "receiver-2",
-								},
-							},
-						},
-					},
 					Receivers: []*v1.PostableApiReceiver{
 						{
 							Name: "receiver-1",
@@ -1743,19 +1640,6 @@ func TestStitchReceivers(t *testing.T) {
 			expCreatedReceiver: false,
 			expFullRemoval:     true,
 			expCfg: v1.PostableApiAlertingConfig{
-				Config: v1.Config{
-					Route: &v1.Route{
-						Receiver: "receiver-1",
-						Routes: []*v1.Route{
-							{
-								Receiver: "receiver-1",
-							},
-							{
-								Receiver: "receiver-2",
-							},
-						},
-					},
-				},
 				Receivers: []*v1.PostableApiReceiver{
 					{
 						Name: "receiver-1",
@@ -1801,16 +1685,6 @@ func TestStitchReceivers(t *testing.T) {
 func createTestConfigWithReceivers() *v1.AMConfigV1 {
 	return &v1.AMConfigV1{
 		AlertmanagerConfig: v1.PostableApiAlertingConfig{
-			Config: v1.Config{
-				Route: &v1.Route{
-					Receiver: "receiver-1",
-					Routes: []*v1.Route{
-						{
-							Receiver: "receiver-1",
-						},
-					},
-				},
-			},
 			Receivers: []*v1.PostableApiReceiver{
 				{
 					Name: "receiver-1",
@@ -1851,16 +1725,6 @@ func createTestConfigWithReceivers() *v1.AMConfigV1 {
 func createInconsistentTestConfigWithReceivers() *v1.AMConfigV1 {
 	return &v1.AMConfigV1{
 		AlertmanagerConfig: v1.PostableApiAlertingConfig{
-			Config: v1.Config{
-				Route: &v1.Route{
-					Receiver: "receiver-1",
-					Routes: []*v1.Route{
-						{
-							Receiver: "receiver-1",
-						},
-					},
-				},
-			},
 			Receivers: []*v1.PostableApiReceiver{
 				{
 					Name: "receiver-1",

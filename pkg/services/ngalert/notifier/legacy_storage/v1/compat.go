@@ -36,7 +36,7 @@ func ToModel(in *definitions.PostableUserConfig) *AMConfigV1 {
 		TimeIntervals:      TimeIntervalsToModel(in.AlertmanagerConfig.MuteTimeIntervals, in.AlertmanagerConfig.TimeIntervals),
 		AlertmanagerConfig: PostableApiAlertingConfigToModel(in.AlertmanagerConfig),
 		ExtraConfigs:       ExtraConfigsToModel(in.ExtraConfigs),
-		ManagedRoutes:      ManagedRoutesToModel(in.ManagedRoutes),
+		ManagedRoutes:      ManagedRoutesToModel(in.ManagedRoutes, in.AlertmanagerConfig.Route),
 	}
 }
 
@@ -44,7 +44,6 @@ func PostableApiAlertingConfigToModel(in definition.PostableApiAlertingConfig) P
 	return PostableApiAlertingConfig{
 		Config: Config{
 			Global:       in.Global,
-			Route:        RouteToModel(in.Route),
 			InhibitRules: slices.Clone(in.InhibitRules),
 			Templates:    slices.Clone(in.Templates),
 		},
@@ -103,14 +102,12 @@ func PostableGrafanaReceiversToModel(in []*definition.PostableGrafanaReceiver) [
 	return out
 }
 
-func ManagedRoutesToModel(in map[string]*definition.Route) map[string]*Route {
-	if in == nil {
-		return nil
-	}
-	routes := make(map[string]*Route, len(in))
+func ManagedRoutesToModel(in map[string]*definition.Route, defaultRoute *definition.Route) map[string]*Route {
+	routes := make(map[string]*Route, len(in)+1)
 	for name, route := range in {
-		routes[name] = RouteToModel(route)
+		routes[models.CanonicalizeRoutingTreeName(name)] = RouteToModel(route)
 	}
+	routes[models.DefaultRoutingTreeName] = RouteToModel(defaultRoute)
 	return routes
 }
 
@@ -210,7 +207,7 @@ func ToDBModel(in *AMConfigV1) (*AMConfigDB, error) {
 	}
 	dbModel := AMConfigDB{
 		ManagedTemplates:   TemplatesToManagedTemplates(in.Templates),
-		AlertmanagerConfig: PostableApiAlertingConfigToDB(in.AlertmanagerConfig, in.SortedTimeIntervals()),
+		AlertmanagerConfig: PostableApiAlertingConfigToDB(in.AlertmanagerConfig, in.GetDefaultRoute(), in.SortedTimeIntervals()),
 		ExtraConfigs:       ExtraConfigsToDB(in.ExtraConfigs),
 		ManagedRoutes:      ManagedRoutesToDB(in.ManagedRoutes),
 	}
@@ -225,11 +222,11 @@ func ToDBModel(in *AMConfigV1) (*AMConfigDB, error) {
 	return &dbModel, errors.Join(errs...)
 }
 
-func PostableApiAlertingConfigToDB(in PostableApiAlertingConfig, timeIntervals []TimeInterval) definition.PostableApiAlertingConfig {
+func PostableApiAlertingConfigToDB(in PostableApiAlertingConfig, route *Route, timeIntervals []TimeInterval) definition.PostableApiAlertingConfig {
 	return definition.PostableApiAlertingConfig{
 		Config: definition.Config{
 			Global:       in.Global,
-			Route:        RouteToDB(in.Route),
+			Route:        RouteToDB(route),
 			InhibitRules: slices.Clone(in.InhibitRules),
 			Templates:    slices.Clone(in.Templates),
 			// This conversion can be lossy since we don't track whether the TimeInterval came from MuteTimeInterval or TimeInterval.
@@ -294,6 +291,11 @@ func ManagedRoutesToDB(in map[string]*Route) definitions.ManagedRoutes {
 	}
 	routes := make(definitions.ManagedRoutes, len(in))
 	for name, route := range in {
+		// The default (root) route is excluded as, for now, it's represented separately on
+		// PostableApiAlertingConfig.Route not as a managed_routes entry.
+		if models.IsDefaultRoutingTreeName(name) {
+			continue
+		}
 		routes[name] = RouteToDB(route)
 	}
 	return routes
