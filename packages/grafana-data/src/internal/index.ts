@@ -124,3 +124,15 @@ export { sanitize, sanitizeUrl } from '../text/sanitize';
 
 export { NewThemeOptionsSchema } from '../themes/createTheme';
 export { createFieldsOrdererAuto } from '../transformations/transformers/order';
+
+export {
+  TABLE_VIEW_TRANSFORM,
+  tableFrameKey,
+  tableParentKey,
+  getTableViewSource,
+  tableViewIndices,
+  transformTableFrame,
+  resolveTableViewTransform,
+  type TableViewOptions,
+  type TableViewFilter,
+} from '../transformations/transformers/tableView';

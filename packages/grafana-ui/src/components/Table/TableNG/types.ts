@@ -12,6 +12,7 @@ import {
   type DataFrameWithValue,
   type SelectableValue,
   type FieldState,
+  type FieldConfig,
 } from '@grafana/data';
 import { type CellRendererProps, type Column } from '@grafana/react-data-grid';
 import { type MatcherScope, type TableCellHeight } from '@grafana/schema';
@@ -19,6 +20,7 @@ import { type MatcherScope, type TableCellHeight } from '@grafana/schema';
 import { type TableCellInspectorMode } from '../TableCellInspector';
 import { type TableCellOptions } from '../types';
 
+import { type TableRowTransformations } from './TableViewContext';
 import { type TextAlign } from './styles';
 import { type ApplyFilterResult } from './utils';
 
@@ -51,6 +53,10 @@ export enum FilterOperator {
 export type FilterType = Record<
   string,
   {
+    range?: { min?: number; max?: number; includeMissing: boolean };
+    displayConfig?: FieldConfig;
+    fieldName?: string;
+    fieldLabels?: Record<string, string>;
     filteredSet: Set<string>;
     displayName: string;
     filtered?: Array<SelectableValue<unknown>>;
@@ -109,6 +115,10 @@ export interface TableSortByFieldState {
 export type SortByBehavior = 'initial' | 'managed';
 
 interface BaseTableProps {
+  /** Experimental transformation-backed table view, explicitly owned by its host. */
+  rowTransformationsEnabled?: boolean;
+  rowTransformations?: TableRowTransformations;
+  timeZone?: string;
   ariaLabel?: string;
   data: DataFrame;
   width: number;

@@ -2,6 +2,7 @@ import { useState } from 'react';
 
 import { type Field, type SelectableValue } from '@grafana/data';
 
+import { useTableView } from '../TableViewContext';
 import { FilterOperator, type FilterType, type TableRow } from '../types';
 
 import { type FilterPopupProps } from './FilterPopup';
@@ -45,6 +46,7 @@ export function useFilterPopupState({
   crossFilterRows,
   crossFilterTailRows,
 }: UseFilterPopupStateOptions): UseFilterPopupState {
+  const view = useTableView();
   const filterKey = typeof parentIndex === 'number' ? `${name}-${parentIndex}` : name;
   const filterValue = filter[filterKey]?.filtered;
 
@@ -63,8 +65,11 @@ export function useFilterPopupState({
   return {
     isPopoverVisible,
     setPopoverVisible,
-    filterEnabled: Boolean(filterValue),
+    filterEnabled: Boolean(filterValue || filter[filterKey]?.range),
     popupProps: {
+      typed: Boolean(view),
+      timeZone: view?.timeZone,
+      range: filter[filterKey]?.range,
       name,
       rows: rowsForPopup,
       filterValue,

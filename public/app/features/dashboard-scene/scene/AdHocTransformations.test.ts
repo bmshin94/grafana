@@ -1,4 +1,5 @@
 import { FieldType, LoadingState, getDefaultTimeRange, standardTransformersRegistry, toDataFrame } from '@grafana/data';
+import { TABLE_VIEW_TRANSFORM, tableFrameKey } from '@grafana/data/internal';
 import { getPanelPlugin } from '@grafana/data/test';
 import { setPluginImportUtils } from '@grafana/runtime';
 import { SceneDataNode, SceneDataTransformer, SceneObjectStateChangedEvent, VizPanel } from '@grafana/scenes';
@@ -212,4 +213,25 @@ describe('getAdHocTransformations', () => {
     expect(getAdHocTransformations(clone)!.get()).toEqual([]);
     expect(getAdHocTransformations(panel)!.get()).toHaveLength(1);
   });
+});
+
+it('applies table row transforms before hiding columns without changing saved state', async () => {
+  const { panel, transformer, source } = setup();
+  const adHoc = getAdHocTransformations(panel)!;
+  const config = {
+    id: TABLE_VIEW_TRANSFORM,
+    options: {
+      frameKey: tableFrameKey(source.state.data!.series, 0),
+      filters: { a: { displayName: 'A', range: { min: 2, includeMissing: false } } },
+      sort: [{ field: 'A', desc: true }],
+    },
+  };
+  adHoc.set([config, HIDE_B]);
+  await settle();
+  expect(transformer.state.data!.series[0].fields.map((field) => field.values)).toEqual([[3, 2]]);
+  expect(adHoc.getSourceSeries()[0].fields[0].values).toEqual([1, 2, 3]);
+  expect(transformer.state.transformations).toEqual([]);
+  adHoc.set([{ ...config, options: { ...config.options, filters: {} } }, HIDE_B]);
+  await settle();
+  expect(transformer.state.data!.series[0].fields[0].values).toEqual([3, 2, 1]);
 });

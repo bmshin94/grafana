@@ -215,6 +215,9 @@ export function TableFlat(props: TableNGProps) {
       if (canHideAnotherColumn) {
         setHiddenColumns(new Set(hiddenColumns).add(displayName));
       }
+      if (props.rowTransformationsEnabled) {
+        return;
+      }
       setFilter((current) => {
         if (!(displayName in current)) {
           return current;
@@ -225,7 +228,7 @@ export function TableFlat(props: TableNGProps) {
       });
       setSortColumns((current) => current.filter((sort) => sort.columnKey !== displayName));
     },
-    [canHideAnotherColumn, hiddenColumns, setFilter, setHiddenColumns, setSortColumns]
+    [canHideAnotherColumn, hiddenColumns, setFilter, setHiddenColumns, setSortColumns, props.rowTransformationsEnabled]
   );
 
   const handleToggleColumnVisibility = useCallback(

@@ -1,4 +1,4 @@
-import { mergeMap, tap } from 'rxjs';
+import { switchMap, tap } from 'rxjs';
 
 import {
   type CustomTransformOperator,
@@ -6,6 +6,7 @@ import {
   type DataTransformerConfig,
   transformDataFrame,
 } from '@grafana/data';
+import { resolveTableViewTransform } from '@grafana/data/internal';
 import { SceneDataTransformer, type VizPanel } from '@grafana/scenes';
 import { type AdHocTransformationsApi } from '@grafana/ui';
 
@@ -81,7 +82,7 @@ export class AdHocTransformations implements AdHocTransformationsApi {
         tap((frames) => {
           this._sourceSeries = frames;
         }),
-        mergeMap((frames) => transformDataFrame(Array.from(this._configs), frames, ctx))
+        switchMap((frames) => transformDataFrame(Array.from(this._configs, resolveTableViewTransform), frames, ctx))
       );
   }
 }

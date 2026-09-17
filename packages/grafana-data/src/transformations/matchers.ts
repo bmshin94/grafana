@@ -21,6 +21,7 @@ import { getNumericValueMatchers } from './matchers/valueMatchers/numericMatcher
 import { getRangeValueMatchers } from './matchers/valueMatchers/rangeMatchers';
 import { getRegexValueMatcher } from './matchers/valueMatchers/regexMatchers';
 import { getSubstringValueMatchers } from './matchers/valueMatchers/substringMatchers';
+import { tableViewMatcher } from './matchers/valueMatchers/tableViewMatcher';
 
 /**
  * Registry that contains all of the built in field matchers.
@@ -52,6 +53,7 @@ export const frameMatchers = new Registry<FrameMatcherInfo>(() => {
  */
 export const valueMatchers = new Registry<ValueMatcherInfo>(() => {
   return [
+    tableViewMatcher,
     ...getNullValueMatchers(),
     ...getNumericValueMatchers(),
     ...getEqualValueMatchers(),

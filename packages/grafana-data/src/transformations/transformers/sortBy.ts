@@ -1,14 +1,18 @@
+import { isEqual } from 'lodash';
 import { map } from 'rxjs/operators';
 
 import { sortDataFrame } from '../../dataframe/processDataFrame';
 import { getFieldDisplayName } from '../../field/fieldState';
-import { type DataFrame } from '../../types/dataFrame';
+import { FieldType, type DataFrame } from '../../types/dataFrame';
 import { type DataTransformContext, type DataTransformerInfo } from '../../types/transformations';
 
 import { DataTransformerID } from './ids';
 
 export interface SortByField {
   field: string;
+  /** Label used by a transient table view when field overrides rename a column. */
+  displayName?: string;
+  fieldLabels?: Record<string, string>;
   desc?: boolean;
   index?: number;
 }
@@ -17,6 +21,8 @@ export interface SortByTransformerOptions {
   // NOTE: this structure supports an array, however only the first entry is used
   // future versions may support multi-sort options
   sort: SortByField[];
+  /** Internal table view: stable multi-sort with table comparison semantics. */
+  table?: boolean;
 }
 
 export const sortByTransformer: DataTransformerInfo<SortByTransformerOptions> = {
@@ -37,7 +43,9 @@ export const sortByTransformer: DataTransformerInfo<SortByTransformerOptions> = 
         if (!Array.isArray(data) || data.length === 0 || !options?.sort?.length) {
           return data;
         }
-        return sortDataFrames(data, options.sort, ctx);
+        return options.table
+          ? data.map((frame) => sortTableFrame(frame, options.sort))
+          : sortDataFrames(data, options.sort, ctx);
       })
     ),
 };
@@ -64,4 +72,60 @@ function attachFieldIndex(frame: DataFrame, sort: SortByField[], ctx: DataTransf
       index: frame.fields.findIndex((f) => s.field === getFieldDisplayName(f, frame)),
     };
   });
+}
+
+const tableCollator = new Intl.Collator('en', { sensitivity: 'base', numeric: true });
+
+function sortTableFrame(frame: DataFrame, sort: SortByField[]): DataFrame {
+  const keys = sort.flatMap((key) => {
+    const field =
+      frame.fields[
+        key.index ??
+          frame.fields.findIndex((f) =>
+            key.displayName != null
+              ? key.field === f.name && isEqual(key.fieldLabels, f.labels)
+              : key.field === getFieldDisplayName(f, frame)
+          )
+      ];
+    return field ? [{ field, direction: key.desc ? -1 : 1 }] : [];
+  });
+  if (!keys.length) {
+    return frame;
+  }
+  const indices = Array.from({ length: frame.length }, (_, i) => i);
+  indices.sort((a, b) => {
+    for (const { field, direction } of keys) {
+      const av = field.values[a];
+      const bv = field.values[b];
+      let comparison: number;
+      switch (field.type) {
+        case FieldType.number:
+        case FieldType.time:
+        case FieldType.boolean:
+          comparison = av === bv ? 0 : av == null ? -1 : bv == null ? 1 : Number(av) - Number(bv);
+          break;
+        case FieldType.frame:
+          comparison = (av?.value ?? 0) - (bv?.value ?? 0);
+          break;
+        default:
+          comparison = tableCollator.compare(String(av ?? ''), String(bv ?? ''));
+      }
+      if (comparison === 0 && field.type === FieldType.time && field.nanos) {
+        comparison = field.nanos[a] - field.nanos[b];
+      }
+      if (comparison && !Number.isNaN(comparison)) {
+        return direction * comparison;
+      }
+    }
+    return a - b;
+  });
+  return {
+    ...frame,
+    fields: frame.fields.map((field) => ({
+      ...field,
+      values: indices.map((i) => field.values[i]),
+      ...(field.nanos ? { nanos: indices.map((i) => field.nanos![i]) } : {}),
+      state: undefined,
+    })),
+  };
 }

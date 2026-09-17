@@ -91,19 +91,26 @@ export const filterByValueTransformer: DataTransformerInfo<FilterByValueTransfor
           }
 
           const fields: Field[] = [];
-          const frameLength = include ? rows.size : data[0].length - rows.size;
+          const frameLength = include ? rows.size : frame.length - rows.size;
 
           for (const field of frame.fields) {
             const buffer = [];
+            const nanos: number[] = [];
 
             for (let index = 0; index < frame.length; index++) {
               if (include && rows.has(index)) {
                 buffer.push(field.values[index]);
+                if (field.nanos) {
+                  nanos.push(field.nanos[index]);
+                }
                 continue;
               }
 
               if (!include && !rows.has(index)) {
                 buffer.push(field.values[index]);
+                if (field.nanos) {
+                  nanos.push(field.nanos[index]);
+                }
                 continue;
               }
             }
@@ -112,6 +119,7 @@ export const filterByValueTransformer: DataTransformerInfo<FilterByValueTransfor
             fields.push({
               ...field,
               values: buffer,
+              ...(field.nanos ? { nanos } : {}),
               state: {},
             });
           }

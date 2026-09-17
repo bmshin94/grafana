@@ -32,6 +32,7 @@ import { type MatcherScope } from '@grafana/schema';
 import { useTheme2 } from '../../../themes/ThemeContext';
 import { type TableColumnResizeActionCallback } from '../types';
 
+import { useTableView, transformTableRows, transformTableFilters } from './TableViewContext';
 import { CELL_HORIZONTAL_CHROME, FIRST_COLUMN_EXTRA_PADDING, getPaginationChromeHeight, TABLE } from './constants';
 import { IS_SAFARI_26 } from './styles';
 import {
@@ -63,10 +64,13 @@ import {
 } from './utils';
 
 export function useFilteredRows(rows: TableRow[], fields: Field[], hasNestedFrames?: boolean) {
-  const [filter, setFilter] = useState<FilterType>({});
+  const view = useTableView();
+  const [localFilter, setLocalFilter] = useState<FilterType>({});
+  const filter = view?.filter ?? localFilter;
+  const setFilter = view?.setFilter ?? setLocalFilter;
   const filterResult = useMemo(
-    () => applyFilter(rows, filter, fields, hasNestedFrames),
-    [rows, filter, fields, hasNestedFrames]
+    () => (view ? transformTableFilters(rows, fields, filter) : applyFilter(rows, filter, fields, hasNestedFrames)),
+    [rows, filter, fields, hasNestedFrames, view]
   );
   return { rows: filterResult.filteredRows, filter, setFilter, filterResult };
 }
@@ -123,12 +127,18 @@ export function useSortedRows(
       }) ?? [],
     [] // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const [sortColumns, setSortColumns] = useState<SortColumn[]>(initialSortColumns);
+  const view = useTableView();
+  const [localSort, setLocalSort] = useState<SortColumn[]>(initialSortColumns);
+  const sortColumns = view?.sortColumns ?? localSort;
+  const setSortColumns = view?.setSortColumns ?? setLocalSort;
   const columnTypes = useMemo(() => getColumnTypes(fields), [fields]);
 
   const sortedRows = useMemo(
-    () => applySort(rows, fields, sortColumns, columnTypes, hasNestedFrames),
-    [rows, fields, sortColumns, columnTypes, hasNestedFrames]
+    () =>
+      view
+        ? transformTableRows(rows, fields, {}, sortColumns)
+        : applySort(rows, fields, sortColumns, columnTypes, hasNestedFrames),
+    [rows, fields, sortColumns, columnTypes, hasNestedFrames, view]
   );
 
   return {
@@ -364,6 +374,7 @@ export const useNestedRows = (
   filter: FilterType,
   sortColumns: SortColumn[]
 ): NestedRowEntry[] => {
+  const view = useTableView();
   const frameToRecords = useRowCompiler(nestedData?.[0] ?? createDataFrame({ fields: [] }));
 
   return useMemo(() => {
@@ -380,18 +391,17 @@ export const useNestedRows = (
       }
 
       const rawRows = frameToRecords(nestedFrame, parentRow.__index);
-      const filterResult = applyFilter(rawRows, filter, nestedFrame.fields, false, parentRow.__index);
-      const sortedRows = applySort(
-        filterResult.filteredRows,
-        nestedFrame.fields,
-        sortColumns,
-        getColumnTypes(nestedFrame.fields)
-      );
+      const filterResult = view
+        ? transformTableFilters(rawRows, nestedFrame.fields, filter, parentRow.__index)
+        : applyFilter(rawRows, filter, nestedFrame.fields, false, parentRow.__index);
+      const sortedRows = view
+        ? transformTableRows(filterResult.filteredRows, nestedFrame.fields, {}, sortColumns, parentRow.__index)
+        : applySort(filterResult.filteredRows, nestedFrame.fields, sortColumns, getColumnTypes(nestedFrame.fields));
       result[parentRow.__index] = { raw: rawRows, final: sortedRows, filterResult };
     }
 
     return result;
-  }, [hasNestedFrames, nestedFramesFieldName, rows, sortColumns, filter, frameToRecords, nestedData]);
+  }, [hasNestedFrames, nestedFramesFieldName, rows, sortColumns, filter, frameToRecords, nestedData, view]);
 };
 
 interface UseHeaderHeightOptions {

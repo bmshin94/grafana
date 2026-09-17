@@ -2,7 +2,7 @@ import { css } from '@emotion/css';
 import memoize from 'micro-memoize';
 import { type Dispatch, memo, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { type Field, type GrafanaTheme2, type SelectableValue } from '@grafana/data';
+import { FieldType, type Field, type GrafanaTheme2, type SelectableValue } from '@grafana/data';
 import { selectors } from '@grafana/e2e-selectors';
 import { t, Trans } from '@grafana/i18n';
 
@@ -16,9 +16,13 @@ import { type FilterOperator, type FilterType, type TableRow } from '../types';
 import { getDisplayName } from '../utils';
 
 import { FilterList } from './FilterList';
+import { RangeFilter } from './RangeFilter';
 import { calculateUniqueFieldValues, getFilteredOptions, operatorSelectableValues, valuesToOptions } from './utils';
 
 export interface FilterPopupProps {
+  typed?: boolean;
+  timeZone?: string;
+  range?: { min?: number; max?: number; includeMissing: boolean };
   name: string;
   rows: TableRow[];
   filterValue?: Array<SelectableValue<unknown>>;
@@ -35,6 +39,9 @@ export interface FilterPopupProps {
 
 export const FilterPopup = memo(
   ({
+    typed,
+    range,
+    timeZone,
     name,
     rows,
     filterValue,
@@ -89,7 +96,27 @@ export const FilterPopup = memo(
 
         setFilter((filter: FilterType) => ({
           ...filter,
-          [filterKey]: { filtered: values, filteredSet, searchFilter, operator, displayName: name, parentIndex },
+          [filterKey]: {
+            filtered: values,
+            filteredSet,
+            searchFilter,
+            operator,
+            displayName: name,
+            parentIndex,
+            fieldName: field?.name,
+            fieldLabels: field?.labels,
+            displayConfig:
+              typed && field
+                ? {
+                    unit: field.config.unit,
+                    decimals: field.config.decimals,
+                    mappings: field.config.mappings,
+                    noValue: field.config.noValue,
+                    min: field.config.min,
+                    max: field.config.max,
+                  }
+                : undefined,
+          },
         }));
       } else {
         setFilter((filter: FilterType) => {
@@ -99,7 +126,7 @@ export const FilterPopup = memo(
         });
       }
       onClose();
-    }, [filterKey, operator, parentIndex, searchFilter, setFilter, values, name, onClose]);
+    }, [filterKey, operator, parentIndex, searchFilter, setFilter, values, name, onClose, typed, field]);
 
     const onClearFilter = useCallback(() => {
       setFilter((filter: FilterType) => {
@@ -131,6 +158,47 @@ export const FilterPopup = memo(
     const filterInputPlaceholder = t('grafana-ui.table.filter-popup-input-placeholder', 'Filter values');
     const clearFilterVisible = useMemo(() => filterValue !== undefined, [filterValue]);
     const styles = useStyles2(getStyles);
+
+    if (typed && field && (field.type === FieldType.number || field.type === FieldType.time)) {
+      return (
+        <div
+          className={styles.filterContainer}
+          ref={containerRef}
+          data-testid={selectors.components.Panels.Visualization.TableNG.Filters.Container}
+        >
+          <RangeFilter
+            field={field}
+            rows={rows}
+            range={range}
+            timeZone={timeZone}
+            onCancel={() => {
+              onClose();
+              buttonElement?.focus();
+            }}
+            onClear={() => {
+              onClearFilter();
+              buttonElement?.focus();
+            }}
+            onApply={(next) => {
+              setFilter((current) => ({
+                ...current,
+                [filterKey]: {
+                  displayName: name,
+                  fieldName: field.name,
+                  fieldLabels: field.labels,
+                  parentIndex,
+                  range: next,
+                  filteredSet: new Set(),
+                  filtered: [],
+                },
+              }));
+              onClose();
+              buttonElement?.focus();
+            }}
+          />
+        </div>
+      );
+    }
 
     return (
       <div
